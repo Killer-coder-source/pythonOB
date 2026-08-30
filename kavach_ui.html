@@ -1,209 +1,60 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CYBER KAVACH - Digital Threat Shield</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
-        body { background: #060b18; color: #f8fafc; display: flex; justify-content: center; padding: 20px 10px; min-height: 100vh; }
-        .mobile-frame { width: 100%; max-width: 420px; background: #0e172e; border-radius: 28px; padding: 22px; border: 1.5px solid #1e293b; box-shadow: 0 20px 40px rgba(0,0,0,0.7); position: relative; min-height: 640px; }
-        
-        .header { text-align: center; margin-bottom: 20px; }
-        .shield-icon { width: 60px; height: 60px; background: linear-gradient(135deg, #0284c7, #38bdf8); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 26px; margin-bottom: 8px; box-shadow: 0 0 20px rgba(56, 189, 248, 0.4); }
-        .title { font-size: 20px; font-weight: 800; letter-spacing: 1.5px; color: #38bdf8; text-transform: uppercase; }
-        .subtitle { font-size: 11px; color: #94a3b8; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+import os
+import sys
+import asyncio
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from google import genai
 
-        /* Screen Management */
-        .screen { display: none; }
-        .screen.active { display: block; }
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-        /* Quick Actions */
-        .quick-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; }
-        .action-card { background: #182342; padding: 12px; border-radius: 12px; text-align: center; cursor: pointer; border: 1px solid #293859; transition: transform 0.15s ease; }
-        .action-card:active { transform: scale(0.97); }
-        .action-card.police { border-color: #ef4444; background: rgba(239, 68, 68, 0.08); }
-        .action-card h4 { font-size: 12px; margin-top: 5px; color: #f8fafc; font-weight: 600; }
+app = FastAPI(title="Cyber Kavach AI Engine")
 
-        /* Categories Section */
-        .section-heading { font-size: 12px; font-weight: 700; color: #94a3b8; margin: 18px 0 10px; text-transform: uppercase; letter-spacing: 0.8px; }
-        .module-list { display: flex; flex-direction: column; gap: 10px; }
-        .module-card { background: #182342; padding: 14px; border-radius: 12px; display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid #243354; transition: all 0.2s ease; }
-        .module-card:hover { border-color: #38bdf8; background: #1e2c54; transform: translateX(3px); }
-        .module-card .tag { font-size: 10px; color: #38bdf8; font-weight: 500; display: block; margin-top: 2px; }
-        .module-card span.arrow { color: #64748b; font-size: 18px; }
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-        /* Problem Solver Screen */
-        .nav-back { display: inline-flex; align-items: center; gap: 6px; color: #38bdf8; font-size: 13px; font-weight: 600; cursor: pointer; margin-bottom: 15px; }
-        .nav-back:hover { text-decoration: underline; }
-        
-        .selected-banner { background: #182342; border: 1px solid #38bdf8; border-radius: 12px; padding: 12px; margin-bottom: 14px; }
-        .selected-banner h3 { font-size: 14px; color: #38bdf8; font-weight: 700; }
-        .selected-banner p { font-size: 11px; color: #94a3b8; margin-top: 3px; }
+# Pulls from Render Environment Variable or falls back to local string
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSy...")
+client = genai.Client(api_key=GEMINI_API_KEY)
 
-        .input-card { background: #182342; border-radius: 14px; padding: 14px; border: 1px solid #293859; }
-        textarea { width: 100%; height: 110px; background: #090f21; border: 1px solid #334155; border-radius: 8px; color: #fff; padding: 10px; font-size: 13px; resize: none; outline: none; }
-        textarea:focus { border-color: #38bdf8; }
+class ThreatRequest(BaseModel):
+    message: str
 
-        .scan-btn { width: 100%; background: linear-gradient(135deg, #0284c7, #0369a1); color: white; border: none; padding: 12px; border-radius: 8px; font-weight: 700; font-size: 14px; margin-top: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3); }
-        .scan-btn:hover { background: #0284c7; }
+@app.post("/analyze-threat")
+def analyze_threat(payload: ThreatRequest):
+    prompt = f"""
+    You are the Cyber Kavach Emergency AI Incident Solver.
+    The user reported the following incident:
+    "{payload.message}"
 
-        .result-panel { margin-top: 16px; padding: 14px; background: #090f21; border-left: 4px solid #38bdf8; border-radius: 8px; font-size: 13px; line-height: 1.5; white-space: pre-wrap; display: none; }
-    </style>
-</head>
-<body>
-
-<div class="mobile-frame">
+    Analyze the threat and provide a clear, formatted resolution:
+    🚨 THREAT ASSESSMENT: [CRITICAL / HIGH RISK / SUSPICIOUS / SAFE]
+    🔍 CRIME MECHANISM: [How this scam operates in 1-2 concise sentences]
+    🛡️ STEP-BY-STEP SOLUTION FOR USER:
+    1. [Immediate emergency step]
+    2. [Remediation & 1930 / cybercrime.gov.in guidance]
+    3. [Evidence preservation step]
+    """
     
-    <!-- PAGE 1: HOME SCREEN -->
-    <div id="homeScreen" class="screen active">
-        <div class="header">
-            <div class="shield-icon">🛡️</div>
-            <div class="title">CYBER KAVACH</div>
-            <div class="subtitle">Select Fraud Type to Resolve</div>
-        </div>
+    # Try flash first, fall back to stable lite if overloaded
+    for model_name in ["gemini-2.5-flash", "gemini-2.5-flash-lite"]:
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt
+            )
+            return {"status": "success", "analysis": response.text}
+        except Exception:
+            continue
 
-        <div class="quick-actions">
-            <div class="action-card police" onclick="window.open('tel:1930')">
-                <span style="font-size: 22px;">📞</span>
-                <h4>Emergency (1930)</h4>
-            </div>
-            <div class="action-card" onclick="alert('SAFETY ADVISORY:\n1. Never share OTP or UPI PIN.\n2. Do not scan QR codes to receive money.\n3. Verify delivery links before tapping.')">
-                <span style="font-size: 22px;">💡</span>
-                <h4>Safety Guide</h4>
-            </div>
-        </div>
+    return {"status": "error", "analysis": "AI Service temporarily busy. Please click Solve again in 5 seconds."}
 
-        <div class="section-heading">Choose Your Incident Category</div>
-        <div class="module-list">
-            <div class="module-card" onclick="openSolver('Deepfake & AI Voice Scam', 'Voice cloning, synthetic video, family emergency trap')">
-                <div>
-                    1. Deepfake & AI Fraud
-                    <span class="tag">Voice Clone / Extortion</span>
-                </div>
-                <span class="arrow">›</span>
-            </div>
-            <div class="module-card" onclick="openSolver('Steganography Fraud', 'Hidden virus in image files, doc receipt attachments')">
-                <div>
-                    2. Steganography Fraud
-                    <span class="tag">Hidden Files / Malicious Media</span>
-                </div>
-                <span class="arrow">›</span>
-            </div>
-            <div class="module-card" onclick="openSolver('Erroneous UPI Transaction', 'Money sent to wrong number, reverse payment trick')">
-                <div>
-                    3. Erroneous Transaction
-                    <span class="tag">Wrong Transfer / Bank Dispute</span>
-                </div>
-                <span class="arrow">›</span>
-            </div>
-            <div class="module-card" onclick="openSolver('URL Smishing & Phishing Links', 'Fake package delivery SMS, APK download links')">
-                <div>
-                    4. URL Scanner (Smishing)
-                    <span class="tag">Fake Links / APK Traps</span>
-                </div>
-                <span class="arrow">›</span>
-            </div>
-            <div class="module-card" onclick="openSolver('E-Commerce Order Scam', 'Fake online website, non-delivery of items, fake offers')">
-                <div>
-                    5. E-commerce Order Fraud
-                    <span class="tag">Fake Stores / Advance Payment</span>
-                </div>
-                <span class="arrow">›</span>
-            </div>
-            <div class="module-card" onclick="openSolver('Callback Hacking & Identity Theft', 'Missed calls from foreign numbers, SIM clone alerts')">
-                <div>
-                    6. Callback Time & ID Theft
-                    <span class="tag">SIM Swap / Toll Fraud</span>
-                </div>
-                <span class="arrow">›</span>
-            </div>
-            <div class="module-card" onclick="openSolver('Financial & UPI Fraud', 'Scan QR code to receive money, fake screenshot, PIN theft')">
-                <div>
-                    7. Financial & UPI Fraud
-                    <span class="tag">QR Scams / PIN Harvesting</span>
-                </div>
-                <span class="arrow">›</span>
-            </div>
-        </div>
-    </div>
-
-    <!-- PAGE 2: PROBLEM SOLVER SCREEN -->
-    <div id="solverScreen" class="screen">
-        <div class="nav-back" onclick="goToHome()">
-            ← Back to Categories
-        </div>
-
-        <div class="selected-banner">
-            <h3 id="categoryTitle">Selected Category</h3>
-            <p id="categoryDesc">Describe your exact situation below for AI mitigation.</p>
-        </div>
-
-        <div class="input-card">
-            <textarea id="userProblemInput" placeholder="Write or paste your exact problem here (e.g. message received, amount lost, suspicious link, what the caller said)..."></textarea>
-            <button class="scan-btn" onclick="analyzeProblem()">⚡ Solve My Problem with AI</button>
-        </div>
-
-        <div id="aiResultBox" class="result-panel"></div>
-    </div>
-
-</div>
-
-<script>
-    let currentCategory = "";
-
-    function openSolver(categoryName, description) {
-        currentCategory = categoryName;
-        document.getElementById('categoryTitle').innerText = categoryName;
-        document.getElementById('categoryDesc').innerText = description;
-        document.getElementById('userProblemInput').value = "";
-        document.getElementById('aiResultBox').style.display = "none";
-        
-        document.getElementById('homeScreen').classList.remove('active');
-        document.getElementById('solverScreen').classList.add('active');
-    }
-
-    function goToHome() {
-        document.getElementById('solverScreen').classList.remove('active');
-        document.getElementById('homeScreen').classList.add('active');
-    }
-
-    async function analyzeProblem() {
-        const problemText = document.getElementById('userProblemInput').value.trim();
-        const resultBox = document.getElementById('aiResultBox');
-        
-        if (!problemText) {
-            alert("Please describe your problem or paste the suspicious message.");
-            return;
-        }
-
-        resultBox.style.display = "block";
-        resultBox.style.borderColor = "#38bdf8";
-        resultBox.innerText = "⏳ Cyber Kavach AI is analyzing your issue under [" + currentCategory + "]...";
-
-        const fullMessage = "Category: " + currentCategory + "\nUser Problem: " + problemText;
-
-        try {
-            const res = await fetch("http://127.0.0.1:8000/analyze-threat", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ message: fullMessage })
-            });
-            const data = await res.json();
-
-            if (data.status === "success") {
-                resultBox.style.borderColor = "#22c55e";
-                resultBox.innerText = data.analysis;
-            } else {
-                resultBox.style.borderColor = "#ef4444";
-                resultBox.innerText = data.analysis;
-            }
-        } catch (err) {
-            resultBox.style.borderColor = "#ef4444";
-            resultBox.innerText = "❌ Backend Server Offline\n\nPlease ensure your server is running in terminal:\npython KAVACH.py";
-        }
-    }
-</script>
-
-</body>
-</html>
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="127.0.0.1", port=8000)
